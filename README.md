@@ -27,7 +27,7 @@ Add this package via Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/user/NumberFlow", from: "1.0.0")
+    .package(url: "https://github.com/mip404/NumberFlow", from: "1.0.0")
 ]
 ```
 
