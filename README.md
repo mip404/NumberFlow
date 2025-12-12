@@ -1,6 +1,6 @@
 # NumberFlow
 
-An animated number counter component for iOS 17+, inspired by [number-flow](https://github.com/barvian/number-flow).
+An animated number counter component for iOS 17+
 
 https://github.com/user-attachments/assets/13d827ec-2f4e-40d6-a558-40e6c6fbbf39
 
@@ -11,7 +11,6 @@ https://github.com/user-attachments/assets/13d827ec-2f4e-40d6-a558-40e6c6fbbf39
 - Layout animations when number width changes
 - Full number formatting support (currency, percent, decimal)
 - Customizable fonts and colors
-- VoiceOver support
 - Respects reduced motion preferences
 - Pure Swift, zero dependencies
 
@@ -33,8 +32,6 @@ dependencies: [
 
 ## Usage
 
-### SwiftUI
-
 ```swift
 import SwiftUI
 import NumberFlow
@@ -44,31 +41,6 @@ struct ContentView: View {
 
     var body: some View {
         NumberFlowView(value: value)
-    }
-}
-```
-
-### UIKit
-
-```swift
-import UIKit
-import NumberFlow
-
-class ViewController: UIViewController {
-    private var numberView: NumberFlowUIView!
-    private let formatter = NumberFlowFormatter(style: .currency, currencyCode: "USD")
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        let data = formatter.data(for: .double(1234.56))
-        numberView = NumberFlowUIView(data: data)
-        numberView.font = .monospacedDigitSystemFont(ofSize: 32, weight: .bold)
-        view.addSubview(numberView)
-    }
-
-    func updateValue(_ newValue: Double) {
-        numberView.data = formatter.data(for: .double(newValue))
     }
 }
 ```
