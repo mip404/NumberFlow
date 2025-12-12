@@ -2,6 +2,8 @@
 
 An animated number counter component for iOS 17+, inspired by [number-flow](https://github.com/barvian/number-flow).
 
+https://github.com/user-attachments/assets/13d827ec-2f4e-40d6-a558-40e6c6fbbf39
+
 ## Features
 
 - Smooth digit scrolling animations
