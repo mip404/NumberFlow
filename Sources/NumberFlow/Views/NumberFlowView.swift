@@ -182,7 +182,7 @@
                     )
 
                     HStack(spacing: 12) {
-                        Button("Random") { value3 = Double.random(in: 0...999999) }
+                        Button("Random") { value3 = Double.random(in: 0...999_999_999) }
                             .buttonStyle(.bordered)
                         Button("+1K") { value3 += 1000 }
                             .buttonStyle(.bordered)

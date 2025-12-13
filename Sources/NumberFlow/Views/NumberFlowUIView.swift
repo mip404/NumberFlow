@@ -48,7 +48,7 @@ public final class NumberFlowUIView: UIView {
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
         isAccessibilityElement = true
@@ -94,31 +94,27 @@ public final class NumberFlowUIView: UIView {
             setNeedsLayout()
             layoutIfNeeded()
 
+            let orderedKeys = newData.allParts.map(\.key)
+
             for (key, charView) in characters {
-                guard let initialFrame = initialFrames[key] else { continue }
+                if let initialFrame = initialFrames[key] {
+                    let finalFrame = charView.frame
+                    let dx = initialFrame.minX - finalFrame.minX
+                    let dy = initialFrame.minY - finalFrame.minY
 
-                let finalFrame = charView.frame
-                let dx = initialFrame.minX - finalFrame.minX
-                let dy = initialFrame.minY - finalFrame.minY
-
-                if abs(dx) > 0.1 || abs(dy) > 0.1 {
-                    charView.transform = CGAffineTransform(translationX: dx, y: dy)
-
-                    let springTiming = UISpringTimingParameters(
-                        dampingRatio: animation.transformDampingRatio,
-                        initialVelocity: CGVector(dx: 0, dy: 0)
-                    )
-
-                    let animator = UIViewPropertyAnimator(
-                        duration: animation.transformDuration,
-                        timingParameters: springTiming
-                    )
-
-                    animator.addAnimations {
-                        charView.transform = .identity
+                    if abs(dx) > 0.1 || abs(dy) > 0.1 {
+                        charView.transform = CGAffineTransform(translationX: dx, y: dy)
+                        animateTransformToIdentity(charView)
                     }
+                } else if addedKeys.contains(key) {
+                    let finalFrame = charView.frame
+                    let offsetY = -CGFloat(direction) * finalFrame.height
 
-                    animator.startAnimation()
+                    charView.alpha = 0
+                    charView.transform = CGAffineTransform(translationX: 0, y: offsetY)
+
+                    animateTransformToIdentity(charView)
+                    charView.fadeIn(duration: animation.opacityDuration)
                 }
             }
         } else {
@@ -128,7 +124,26 @@ public final class NumberFlowUIView: UIView {
             reorderCharacters(newData)
         }
 
+        invalidateIntrinsicContentSize()
         updateAccessibilityLabel()
+    }
+
+    private func animateTransformToIdentity(_ view: UIView) {
+        let springTiming = UISpringTimingParameters(
+            dampingRatio: animation.transformDampingRatio,
+            initialVelocity: CGVector(dx: 0, dy: 0)
+        )
+
+        let animator = UIViewPropertyAnimator(
+            duration: animation.transformDuration,
+            timingParameters: springTiming
+        )
+
+        animator.addAnimations {
+            view.transform = .identity
+        }
+
+        animator.startAnimation()
     }
 
     private func handleRemovedCharacters(_ keys: Set<NumberPartKey>) {
@@ -146,18 +161,15 @@ public final class NumberFlowUIView: UIView {
 
             let charView = createCharacterView(for: part)
             characters[key] = charView
-
-            if animation.shouldAnimate {
-                charView.alpha = 0
-                stackView.addArrangedSubview(charView)
-                charView.fadeIn(duration: animation.opacityDuration)
-            } else {
-                stackView.addArrangedSubview(charView)
-            }
+            stackView.addArrangedSubview(charView)
         }
     }
 
-    private func handleExistingCharacters(_ newData: NumberFlowData, _ keys: Set<NumberPartKey>, direction: Int) {
+    private func handleExistingCharacters(
+        _ newData: NumberFlowData,
+        _ keys: Set<NumberPartKey>,
+        direction: Int
+    ) {
         for key in keys {
             guard let charView = characters[key],
                   let newPart = newData.allParts.first(where: { $0.key == key })
@@ -215,6 +227,7 @@ public final class NumberFlowUIView: UIView {
                 label.font = font
             }
         }
+        invalidateIntrinsicContentSize()
     }
 
     private func updateTextColor() {
