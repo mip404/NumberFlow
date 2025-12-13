@@ -3,45 +3,79 @@ import UIKit
 @MainActor
 final class DigitColumnView: UIView {
 
+    private let digitsPerCycle = 10
+    private let cycles = 3
+    private var totalCount: Int { digitsPerCycle * cycles }
+    private var middleCycleOffset: Int { digitsPerCycle }
+
     private let containerView = UIView()
     private let stackView = UIStackView()
     private var digitLabels: [UILabel] = []
+
     private var maskLayer: CAGradientLayer?
     private var heightConstraint: NSLayoutConstraint?
     private var widthConstraint: NSLayoutConstraint?
 
-    private var currentDigit: Int = 0
+    private var currentIndex: Int = 10
     private var animator: UIViewPropertyAnimator?
 
+    private var currentDigit: Int {
+        (currentIndex % digitsPerCycle + digitsPerCycle) % digitsPerCycle
+    }
+
     var font: UIFont = .monospacedDigitSystemFont(ofSize: 17, weight: .regular) {
-        didSet {
-            digitLabels.forEach { $0.font = font }
-            // Force layout to get accurate size for new font
-            if let firstLabel = digitLabels.first {
-                firstLabel.sizeToFit()
-                let size = firstLabel.intrinsicContentSize
-                heightConstraint?.constant = size.height
-                widthConstraint?.constant = size.width
-            }
-            invalidateIntrinsicContentSize()
-            setNeedsLayout()
-        }
+        didSet { applyFontAndResize() }
     }
 
     var textColor: UIColor = .label {
-        didSet {
-            digitLabels.forEach { $0.textColor = textColor }
-        }
+        didSet { digitLabels.forEach { $0.textColor = textColor } }
     }
 
     init() {
         super.init(frame: .zero)
         setupView()
+        applyFontAndResize()
+        recenterWithoutAnimation()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func setDigit(_ newDigit: Int, direction: Int, animation: NumberFlowAnimation) {
+        let clamped = max(0, min(9, newDigit))
+
+        layoutIfNeeded()
+
+        if bounds.height <= 0 {
+            currentIndex = middleCycleOffset + clamped
+            updateTransform(animated: false)
+            return
+        }
+
+        finishAndSyncIfAnimating()
+
+        if clamped == currentDigit { return }
+
+        recenterWithoutAnimation()
+
+        let oldDigit = currentDigit
+        let rawDelta = clamped - oldDigit
+        let delta = computeDelta(rawDelta: rawDelta, direction: direction)
+        let targetIndex = currentIndex + delta
+
+        guard animation.shouldAnimate else {
+            currentIndex = middleCycleOffset + clamped
+            updateTransform(animated: false)
+            return
+        }
+
+        animateToIndex(targetIndex, animation: animation) { [weak self] in
+            guard let self else { return }
+            self.currentIndex = targetIndex
+            self.recenterWithoutAnimation()
+        }
     }
 
     private func setupView() {
@@ -67,152 +101,152 @@ final class DigitColumnView: UIView {
 
         containerView.addSubview(stackView)
 
-        for value in 0...9 {
-            let label = UILabel()
-            label.text = "\(value)"
-            label.textAlignment = .center
-            label.font = font
-            label.textColor = textColor
-            label.adjustsFontForContentSizeCategory = false
-
-            // Critical: Ensure all digits have exact same width
-            label.setContentCompressionResistancePriority(.required, for: .horizontal)
-            label.setContentHuggingPriority(.required, for: .horizontal)
-
-            digitLabels.append(label)
-            stackView.addArrangedSubview(label)
+        digitLabels.removeAll(keepingCapacity: true)
+        for _ in 0..<cycles {
+            for value in 0...9 {
+                let label = UILabel()
+                label.text = "\(value)"
+                label.textAlignment = .center
+                label.adjustsFontForContentSizeCategory = false
+                label.setContentCompressionResistancePriority(.required, for: .horizontal)
+                label.setContentHuggingPriority(.required, for: .horizontal)
+                digitLabels.append(label)
+                stackView.addArrangedSubview(label)
+            }
         }
 
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            stackView.heightAnchor.constraint(equalTo: containerView.heightAnchor, multiplier: 10),
+            stackView.heightAnchor.constraint(equalTo: containerView.heightAnchor, multiplier: CGFloat(totalCount)),
         ])
 
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        // Constrain this view's height to show only one digit at a time
-        // Force layout to get accurate size
-        if let firstLabel = digitLabels.first {
-            firstLabel.sizeToFit()
-            let size = firstLabel.intrinsicContentSize
-            heightConstraint = heightAnchor.constraint(equalToConstant: size.height)
-            heightConstraint?.priority = .required
-            heightConstraint?.isActive = true
-
-            // Constrain width to be exactly one digit wide for consistency
-            widthConstraint = widthAnchor.constraint(equalToConstant: size.width)
-            widthConstraint?.priority = .required
-            widthConstraint?.isActive = true
-        }
-
-        setupMask()
-    }
-
-    private func setupMask() {
-        let gradientMask = CAGradientLayer()
-        gradientMask.colors = [
+        let g = CAGradientLayer()
+        g.colors = [
             UIColor.clear.cgColor,
             UIColor.black.cgColor,
             UIColor.black.cgColor,
             UIColor.clear.cgColor,
         ]
-        gradientMask.locations = [0.0, 0.2, 0.8, 1.0]
-        gradientMask.startPoint = CGPoint(x: 0.5, y: 0.0)
-        gradientMask.endPoint = CGPoint(x: 0.5, y: 1.0)
+        g.locations = [0.0, 0.2, 0.8, 1.0]
+        g.startPoint = CGPoint(x: 0.5, y: 0.0)
+        g.endPoint = CGPoint(x: 0.5, y: 1.0)
 
-        containerView.layer.mask = gradientMask
-        maskLayer = gradientMask
+        containerView.layer.mask = g
+        maskLayer = g
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-
         maskLayer?.frame = containerView.bounds
-
         updateTransform(animated: false)
     }
 
-    func setDigit(_ newDigit: Int, trend: NumberFlowTrend, animation: NumberFlowAnimation) {
-        let clamped = max(0, min(9, newDigit))
-
-        guard clamped != currentDigit else { return }
-
-        let oldDigit = currentDigit
-        currentDigit = clamped
-
-        let shouldAnimate = animation.shouldAnimate
-
-        if shouldAnimate {
-            animateToDigit(from: oldDigit, to: clamped, trend: trend, animation: animation)
-        } else {
-            updateTransform(animated: false)
+    private func applyFontAndResize() {
+        digitLabels.forEach {
+            $0.font = font
+            $0.textColor = textColor
         }
+
+        let size = measureDigitSize()
+
+        if let heightConstraint {
+            heightConstraint.constant = size.height
+        } else {
+            let c = heightAnchor.constraint(equalToConstant: size.height)
+            c.priority = .required
+            c.isActive = true
+            heightConstraint = c
+        }
+
+        if let widthConstraint {
+            widthConstraint.constant = size.width
+        } else {
+            let c = widthAnchor.constraint(equalToConstant: size.width)
+            c.priority = .required
+            c.isActive = true
+            widthConstraint = c
+        }
+
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
     }
 
-    private func animateToDigit(
-        from oldDigit: Int,
-        to newDigit: Int,
-        trend: NumberFlowTrend,
-        animation: NumberFlowAnimation
-    ) {
-        animator?.stopAnimation(true)
-
-        let rawDelta = newDigit - oldDigit
-        let computedTrend = trend.value(from: Double(oldDigit), to: Double(newDigit))
-
-        let delta: Int
-        if computedTrend > 0 && rawDelta < 0 {
-            delta = 10 + rawDelta
-        } else if computedTrend < 0 && rawDelta > 0 {
-            delta = rawDelta - 10
-        } else {
-            delta = rawDelta
-        }
-
-        let digitHeight = bounds.height
-        let targetOffset = CGFloat(newDigit) * digitHeight
-        let currentOffset = CGFloat(oldDigit) * digitHeight
-
-        stackView.transform = CGAffineTransform(translationX: 0, y: -currentOffset)
-
-        animator = UIViewPropertyAnimator(
-            duration: animation.effectiveSpinDuration,
-            curve: .easeOut
-        )
-
-        animator?.addAnimations { [weak self] in
-            guard let self else { return }
-            self.stackView.transform = CGAffineTransform(translationX: 0, y: -targetOffset)
-        }
-
-        animator?.startAnimation()
-    }
-
-    private func updateTransform(animated: Bool) {
-        let digitHeight = bounds.height
-        let offset = CGFloat(currentDigit) * digitHeight
-
-        if animated {
-            UIView.animate(
-                withDuration: 0.3,
-                delay: 0,
-                options: [.curveEaseInOut],
-                animations: { [weak self] in
-                    self?.stackView.transform = CGAffineTransform(translationX: 0, y: -offset)
-                }
-            )
-        } else {
-            stackView.transform = CGAffineTransform(translationX: 0, y: -offset)
-        }
+    private func measureDigitSize() -> CGSize {
+        let s = "8" as NSString
+        let raw = s.size(withAttributes: [.font: font])
+        return CGSize(width: ceil(raw.width), height: ceil(raw.height))
     }
 
     override var intrinsicContentSize: CGSize {
-        // Monospaced fonts ensure all digits have the same width
-        let width = digitLabels.first?.intrinsicContentSize.width ?? 0
-        let height = digitLabels.first?.intrinsicContentSize.height ?? 0
-        return CGSize(width: width, height: height)
+        measureDigitSize()
+    }
+
+    private func computeDelta(rawDelta: Int, direction: Int) -> Int {
+        guard rawDelta != 0 else { return 0 }
+
+        if direction > 0 {
+            return rawDelta >= 0 ? rawDelta : (rawDelta + digitsPerCycle)
+        } else if direction < 0 {
+            return rawDelta <= 0 ? rawDelta : (rawDelta - digitsPerCycle)
+        } else {
+            if abs(rawDelta) <= digitsPerCycle / 2 {
+                return rawDelta
+            } else {
+                return rawDelta > 0 ? (rawDelta - digitsPerCycle) : (rawDelta + digitsPerCycle)
+            }
+        }
+    }
+
+    private func finishAndSyncIfAnimating() {
+        guard let animator else { return }
+        animator.stopAnimation(false)
+        animator.finishAnimation(at: .current)
+        self.animator = nil
+        syncIndexFromCurrentTransform()
+    }
+
+    private func syncIndexFromCurrentTransform() {
+        let ty = stackView.transform.ty
+        let index = Int(round((-ty) / bounds.height))
+        currentIndex = max(0, min(totalCount - 1, index))
+    }
+
+    private func recenterWithoutAnimation() {
+        currentIndex = middleCycleOffset + currentDigit
+        updateTransform(animated: false)
+    }
+
+    private func updateTransform(animated: Bool) {
+        guard bounds.height > 0 else { return }
+        let y = -CGFloat(currentIndex) * bounds.height
+
+        if animated {
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut]) {
+                self.stackView.transform = CGAffineTransform(translationX: 0, y: y)
+            }
+        } else {
+            stackView.transform = CGAffineTransform(translationX: 0, y: y)
+        }
+    }
+
+    private func animateToIndex(_ index: Int, animation: NumberFlowAnimation, completion: @escaping () -> Void) {
+        let y = -CGFloat(index) * bounds.height
+
+        let timing = UISpringTimingParameters(dampingRatio: animation.effectiveSpinDampingRatio)
+        let a = UIViewPropertyAnimator(duration: animation.effectiveSpinDuration, timingParameters: timing)
+        animator = a
+
+        a.addAnimations { [weak self] in
+            self?.stackView.transform = CGAffineTransform(translationX: 0, y: y)
+        }
+        a.addCompletion { pos in
+            if pos == .end { completion() }
+        }
+        a.startAnimation()
     }
 }

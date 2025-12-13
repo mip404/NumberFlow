@@ -4,9 +4,7 @@ import UIKit
 public final class NumberFlowUIView: UIView {
 
     public var data: NumberFlowData {
-        didSet {
-            updateValue(from: oldValue, to: data)
-        }
+        didSet { updateValue(from: oldValue, to: data) }
     }
 
     public var animation: NumberFlowAnimation = .default
@@ -67,7 +65,6 @@ public final class NumberFlowUIView: UIView {
             characters[part.key] = charView
             stackView.addArrangedSubview(charView)
         }
-
         updateAccessibilityLabel()
     }
 
@@ -79,34 +76,26 @@ public final class NumberFlowUIView: UIView {
         let addedKeys = newKeys.subtracting(oldKeys)
         let existingKeys = oldKeys.intersection(newKeys)
 
+        let direction = trend.value(from: oldData.numericValue, to: newData.numericValue)
         let shouldAnimate = animation.shouldAnimate
 
         if shouldAnimate {
-            // FLIP technique: First, Last, Invert, Play
-
-            // Step 1: FIRST - Capture initial positions of all existing characters
             var initialFrames: [NumberPartKey: CGRect] = [:]
             for (key, charView) in characters {
                 charView.layoutIfNeeded()
                 initialFrames[key] = charView.frame
             }
 
-            // Step 2: LAST - Make the layout changes
-            handleRemovedCharacters(removedKeys, animated: true)
+            handleRemovedCharacters(removedKeys)
             handleAddedCharacters(newData, addedKeys)
-            handleExistingCharacters(newData, existingKeys)
+            handleExistingCharacters(newData, existingKeys, direction: direction)
             reorderCharacters(newData)
 
-            // Force layout to get final positions
             setNeedsLayout()
             layoutIfNeeded()
 
-            // Step 3: INVERT & PLAY - Animate characters from old to new positions
             for (key, charView) in characters {
-                guard let initialFrame = initialFrames[key] else {
-                    // New character - already handled with fadeIn
-                    continue
-                }
+                guard let initialFrame = initialFrames[key] else { continue }
 
                 let finalFrame = charView.frame
                 let dx = initialFrame.minX - finalFrame.minX
@@ -133,19 +122,18 @@ public final class NumberFlowUIView: UIView {
                 }
             }
         } else {
-            handleRemovedCharacters(removedKeys, animated: false)
+            handleRemovedCharacters(removedKeys)
             handleAddedCharacters(newData, addedKeys)
-            handleExistingCharacters(newData, existingKeys)
+            handleExistingCharacters(newData, existingKeys, direction: direction)
             reorderCharacters(newData)
         }
 
         updateAccessibilityLabel()
     }
 
-    private func handleRemovedCharacters(_ keys: Set<NumberPartKey>, animated: Bool) {
+    private func handleRemovedCharacters(_ keys: Set<NumberPartKey>) {
         for key in keys {
             guard let charView = characters[key] else { continue }
-
             stackView.removeArrangedSubview(charView)
             charView.removeFromSuperview()
             characters.removeValue(forKey: key)
@@ -169,16 +157,15 @@ public final class NumberFlowUIView: UIView {
         }
     }
 
-    private func handleExistingCharacters(_ newData: NumberFlowData, _ keys: Set<NumberPartKey>) {
+    private func handleExistingCharacters(_ newData: NumberFlowData, _ keys: Set<NumberPartKey>, direction: Int) {
         for key in keys {
             guard let charView = characters[key],
-                let newPart = newData.allParts.first(where: { $0.key == key })
+                  let newPart = newData.allParts.first(where: { $0.key == key })
             else { continue }
 
             if case .digit(let digitView) = charView.content,
-                case .digit(let newDigitPart) = newPart
-            {
-                digitView.setDigit(newDigitPart.value, trend: trend, animation: animation)
+               case .digit(let newDigitPart) = newPart {
+                digitView.setDigit(newDigitPart.value, direction: direction, animation: animation)
             }
         }
     }
@@ -202,8 +189,7 @@ public final class NumberFlowUIView: UIView {
             let digitView = DigitColumnView()
             digitView.font = font
             digitView.textColor = textColor
-            digitView.setDigit(digitPart.value, trend: trend, animation: .init(isAnimated: false))
-
+            digitView.setDigit(digitPart.value, direction: 0, animation: .init(isAnimated: false))
             return CharacterView(key: part.key, content: .digit(digitView))
 
         case .symbol(let symbolPart):
@@ -216,7 +202,6 @@ public final class NumberFlowUIView: UIView {
             label.adjustsFontForContentSizeCategory = false
             label.setContentCompressionResistancePriority(.required, for: .horizontal)
             label.setContentHuggingPriority(.required, for: .horizontal)
-
             return CharacterView(key: part.key, content: .symbol(label))
         }
     }
