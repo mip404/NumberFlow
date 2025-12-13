@@ -72,7 +72,7 @@ final class CharacterView: UIView {
 
         let digitHeight = Self.measureHeight(for: referenceFont)
         let labelHeight = label.intrinsicContentSize.height
-        let offsetY = -(digitHeight - labelHeight) * 0.2
+        let offsetY = -(digitHeight - labelHeight) * 0.15
         label.transform = CGAffineTransform(translationX: 0, y: offsetY)
     }
 
