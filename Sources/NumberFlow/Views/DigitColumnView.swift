@@ -13,8 +13,6 @@ final class DigitColumnView: UIView {
     private var digitLabels: [UILabel] = []
 
     private var maskLayer: CAGradientLayer?
-    private var heightConstraint: NSLayoutConstraint?
-    private var widthConstraint: NSLayoutConstraint?
 
     private var currentIndex: Int = 10
     private var animator: UIViewPropertyAnimator?
@@ -119,7 +117,8 @@ final class DigitColumnView: UIView {
             stackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             stackView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            stackView.heightAnchor.constraint(equalTo: containerView.heightAnchor, multiplier: CGFloat(totalCount)),
+            stackView.heightAnchor.constraint(equalTo: containerView.heightAnchor,
+                                              multiplier: CGFloat(totalCount)),
         ])
 
         setContentHuggingPriority(.required, for: .horizontal)
@@ -150,26 +149,6 @@ final class DigitColumnView: UIView {
         digitLabels.forEach {
             $0.font = font
             $0.textColor = textColor
-        }
-
-        let size = measureDigitSize()
-
-        if let heightConstraint {
-            heightConstraint.constant = size.height
-        } else {
-            let c = heightAnchor.constraint(equalToConstant: size.height)
-            c.priority = .required
-            c.isActive = true
-            heightConstraint = c
-        }
-
-        if let widthConstraint {
-            widthConstraint.constant = size.width
-        } else {
-            let c = widthAnchor.constraint(equalToConstant: size.width)
-            c.priority = .required
-            c.isActive = true
-            widthConstraint = c
         }
 
         invalidateIntrinsicContentSize()
@@ -234,11 +213,14 @@ final class DigitColumnView: UIView {
         }
     }
 
-    private func animateToIndex(_ index: Int, animation: NumberFlowAnimation, completion: @escaping () -> Void) {
+    private func animateToIndex(_ index: Int,
+                                animation: NumberFlowAnimation,
+                                completion: @escaping () -> Void) {
         let y = -CGFloat(index) * bounds.height
 
         let timing = UISpringTimingParameters(dampingRatio: animation.effectiveSpinDampingRatio)
-        let a = UIViewPropertyAnimator(duration: animation.effectiveSpinDuration, timingParameters: timing)
+        let a = UIViewPropertyAnimator(duration: animation.effectiveSpinDuration,
+                                       timingParameters: timing)
         animator = a
 
         a.addAnimations { [weak self] in
