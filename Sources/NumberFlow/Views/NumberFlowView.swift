@@ -27,6 +27,7 @@
         private let trend: NumberFlowTrend
         private let font: UIFont
         private let textColor: UIColor
+        private let currencySymbolScale: CGFloat
 
         public init(
             value: Double,
@@ -34,7 +35,8 @@
             animation: NumberFlowAnimation = .default,
             trend: NumberFlowTrend = .default,
             font: UIFont = .monospacedDigitSystemFont(ofSize: 17, weight: .regular),
-            textColor: UIColor = .label
+            textColor: UIColor = .label,
+            currencySymbolScale: CGFloat = 1.0
         ) {
             self.value = value
             self.format = format
@@ -42,6 +44,7 @@
             self.trend = trend
             self.font = font
             self.textColor = textColor
+            self.currencySymbolScale = currencySymbolScale
         }
 
         public func makeUIView(context: Context) -> NumberFlowUIView {
@@ -59,6 +62,7 @@
             view.trend = trend
             view.font = font
             view.textColor = textColor
+            view.currencySymbolScale = currencySymbolScale
 
             return view
         }
@@ -76,6 +80,7 @@
             uiView.trend = trend
             uiView.font = font
             uiView.textColor = textColor
+            uiView.currencySymbolScale = currencySymbolScale
             uiView.data = formatter.data(for: .double(value))
         }
     }
@@ -88,7 +93,8 @@
                 animation: animation,
                 trend: trend,
                 font: font,
-                textColor: textColor
+                textColor: textColor,
+                currencySymbolScale: currencySymbolScale
             )
         }
 
@@ -99,7 +105,8 @@
                 animation: animation,
                 trend: trend,
                 font: font,
-                textColor: textColor
+                textColor: textColor,
+                currencySymbolScale: currencySymbolScale
             )
         }
 
@@ -110,7 +117,8 @@
                 animation: animation,
                 trend: trend,
                 font: font,
-                textColor: textColor
+                textColor: textColor,
+                currencySymbolScale: currencySymbolScale
             )
         }
 
@@ -121,7 +129,20 @@
                 animation: animation,
                 trend: trend,
                 font: font,
-                textColor: color
+                textColor: color,
+                currencySymbolScale: currencySymbolScale
+            )
+        }
+
+        public func currencySymbolScale(_ scale: CGFloat) -> NumberFlowView {
+            NumberFlowView(
+                value: value,
+                format: format,
+                animation: animation,
+                trend: trend,
+                font: font,
+                textColor: textColor,
+                currencySymbolScale: scale
             )
         }
     }
@@ -405,6 +426,80 @@
                 }
             }
             .padding()
+        }
+    }
+
+    #Preview("Currency Formats") {
+        CurrencyFormatsPreview()
+    }
+
+    private struct CurrencyFormatsPreview: View {
+        @State private var value: Double = 1234.56
+
+        var body: some View {
+            ScrollView {
+                VStack(spacing: 32) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("USD")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        NumberFlowView(
+                            value: value,
+                            format: .currency(code: "USD"),
+                            font: .roundedSystemFont(ofSize: 48, weight: .semibold),
+                            currencySymbolScale: 0.65
+                        )
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("EUR")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        NumberFlowView(
+                            value: value,
+                            format: .currency(code: "EUR"),
+                            font: .roundedSystemFont(ofSize: 48, weight: .semibold),
+                            currencySymbolScale: 1
+                        )
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("INR")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        NumberFlowView(
+                            value: value,
+                            format: .currency(code: "INR"),
+                            font: .roundedSystemFont(ofSize: 48, weight: .semibold),
+                            currencySymbolScale: 0.65
+                        )
+                    }
+
+                    Divider()
+
+                    HStack(spacing: 16) {
+                        Button("Random") {
+                            value = Double.random(in: 0...9999)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("+100") {
+                            value += 100
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("-100") {
+                            value = max(0, value - 100)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding()
+            }
         }
     }
 

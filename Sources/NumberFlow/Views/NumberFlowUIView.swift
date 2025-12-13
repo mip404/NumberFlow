@@ -2,7 +2,6 @@ import UIKit
 
 @MainActor
 public final class NumberFlowUIView: UIView {
-
     public var data: NumberFlowData {
         didSet { updateValue(from: oldValue, to: data) }
     }
@@ -16,6 +15,10 @@ public final class NumberFlowUIView: UIView {
 
     public var textColor: UIColor = .label {
         didSet { updateTextColor() }
+    }
+
+    public var currencySymbolScale: CGFloat = 1.0 {
+        didSet { if currencySymbolScale != oldValue { rebuildCharacters() } }
     }
 
     private let stackView = UIStackView()
@@ -48,7 +51,7 @@ public final class NumberFlowUIView: UIView {
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor)
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
         isAccessibilityElement = true
@@ -66,6 +69,16 @@ public final class NumberFlowUIView: UIView {
             stackView.addArrangedSubview(charView)
         }
         updateAccessibilityLabel()
+    }
+
+    private func rebuildCharacters() {
+        for charView in characters.values {
+            stackView.removeArrangedSubview(charView)
+            charView.removeFromSuperview()
+        }
+        characters.removeAll()
+        initialRender()
+        invalidateIntrinsicContentSize()
     }
 
     private func updateValue(from oldData: NumberFlowData, to newData: NumberFlowData) {
@@ -93,8 +106,6 @@ public final class NumberFlowUIView: UIView {
 
             setNeedsLayout()
             layoutIfNeeded()
-
-            let orderedKeys = newData.allParts.map(\.key)
 
             for (key, charView) in characters {
                 if let initialFrame = initialFrames[key] {
@@ -172,11 +183,12 @@ public final class NumberFlowUIView: UIView {
     ) {
         for key in keys {
             guard let charView = characters[key],
-                  let newPart = newData.allParts.first(where: { $0.key == key })
+                let newPart = newData.allParts.first(where: { $0.key == key })
             else { continue }
 
             if case .digit(let digitView) = charView.content,
-               case .digit(let newDigitPart) = newPart {
+                case .digit(let newDigitPart) = newPart
+            {
                 digitView.setDigit(newDigitPart.value, direction: direction, animation: animation)
             }
         }
@@ -198,24 +210,42 @@ public final class NumberFlowUIView: UIView {
     private func createCharacterView(for part: NumberPart) -> CharacterView {
         switch part {
         case .digit(let digitPart):
-            let digitView = DigitColumnView()
-            digitView.font = font
-            digitView.textColor = textColor
-            digitView.setDigit(digitPart.value, direction: 0, animation: .init(isAnimated: false))
-            return CharacterView(key: part.key, content: .digit(digitView))
+            return createDigitView(for: digitPart, key: part.key)
 
         case .symbol(let symbolPart):
-            let label = UILabel()
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.text = symbolPart.value
-            label.font = font
-            label.textColor = textColor
-            label.textAlignment = .center
-            label.adjustsFontForContentSizeCategory = false
-            label.setContentCompressionResistancePriority(.required, for: .horizontal)
-            label.setContentHuggingPriority(.required, for: .horizontal)
-            return CharacterView(key: part.key, content: .symbol(label))
+            return createSymbolView(for: symbolPart, key: part.key)
         }
+    }
+
+    private func createDigitView(for digitPart: DigitPart, key: NumberPartKey) -> CharacterView {
+        let digitView = DigitColumnView()
+        digitView.font = font
+        digitView.textColor = textColor
+        digitView.setDigit(digitPart.value, direction: 0, animation: .init(isAnimated: false))
+        return CharacterView(key: key, content: .digit(digitView))
+    }
+
+    private func createSymbolView(for symbolPart: SymbolPart, key: NumberPartKey) -> CharacterView {
+        let label = makeSymbolLabel(text: symbolPart.value)
+        if symbolPart.type == .prefix && currencySymbolScale != 1.0 {
+            label.font = font.withSize(font.pointSize * currencySymbolScale)
+            return CharacterView(key: key, content: .currencySymbol(label, referenceFont: font))
+        } else {
+            label.font = font
+            return CharacterView(key: key, content: .symbol(label))
+        }
+    }
+
+    private func makeSymbolLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = text
+        label.textColor = textColor
+        label.textAlignment = .center
+        label.adjustsFontForContentSizeCategory = false
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        return label
     }
 
     private func updateFont() {
@@ -225,6 +255,8 @@ public final class NumberFlowUIView: UIView {
                 digitView.font = font
             case .symbol(let label):
                 label.font = font
+            case .currencySymbol(let label, _):
+                label.font = font.withSize(font.pointSize * currencySymbolScale)
             }
         }
         invalidateIntrinsicContentSize()
@@ -236,6 +268,8 @@ public final class NumberFlowUIView: UIView {
             case .digit(let digitView):
                 digitView.textColor = textColor
             case .symbol(let label):
+                label.textColor = textColor
+            case .currencySymbol(let label, _):
                 label.textColor = textColor
             }
         }

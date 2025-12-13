@@ -2,14 +2,15 @@ import UIKit
 
 @MainActor
 final class CharacterView: UIView {
-
     enum Content {
         case digit(DigitColumnView)
         case symbol(UILabel)
+        case currencySymbol(UILabel, referenceFont: UIFont)
     }
 
     let key: NumberPartKey
     let content: Content
+
     private var fadeAnimator: UIViewPropertyAnimator?
 
     var isPresent: Bool = true {
@@ -33,28 +34,50 @@ final class CharacterView: UIView {
 
     private func setupView() {
         translatesAutoresizingMaskIntoConstraints = false
-
-        let contentView: UIView
-        switch content {
-        case .digit(let digitView):
-            contentView = digitView
-        case .symbol(let label):
-            contentView = label
-        }
-
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(contentView)
-
-        NSLayoutConstraint.activate([
-            contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            contentView.topAnchor.constraint(equalTo: topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
-
-        // Critical: Prevent compression of any character
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        switch content {
+        case .digit(let digitView):
+            addContentView(digitView)
+
+        case .symbol(let label):
+            addContentView(label)
+
+        case .currencySymbol(let label, let referenceFont):
+            addCurrencyLabel(label, referenceFont: referenceFont)
+        }
+    }
+
+    private func addContentView(_ view: UIView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    private func addCurrencyLabel(_ label: UILabel, referenceFont: UIFont) {
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+
+        let digitHeight = Self.measureHeight(for: referenceFont)
+        let labelHeight = label.intrinsicContentSize.height
+        let offsetY = -(digitHeight - labelHeight) * 0.25
+        label.transform = CGAffineTransform(translationX: 0, y: offsetY)
+    }
+
+    private static func measureHeight(for font: UIFont) -> CGFloat {
+        ("8" as NSString).size(withAttributes: [.font: font]).height
     }
 
     func fadeIn(duration: TimeInterval) {
@@ -101,6 +124,8 @@ final class CharacterView: UIView {
         case .digit(let digitView):
             return digitView.intrinsicContentSize
         case .symbol(let label):
+            return label.intrinsicContentSize
+        case .currencySymbol(let label, _):
             return label.intrinsicContentSize
         }
     }
